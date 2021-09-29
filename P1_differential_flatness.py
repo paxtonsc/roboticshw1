@@ -34,6 +34,24 @@ def compute_traj_coeffs(initial_state, final_state, tf):
     """
     ########## Code starts here ##########
 
+    A  = np.array([
+        [1, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 1, 0, 0, 0],
+        [0, 1, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 1, 0, 0],
+        [1, 15, 15**2, 15**3, 0, 0, 0, 0],
+        [0, 0, 0, 0, 1, 15, 15**2, 15**3],
+        [0, 1, 30, 675, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 1, 30, 675]
+    ])
+
+    y = np.array([initial_state.x, initial_state.y, initial_state.V * np.cos(initial_state.th), initial_state.V * np.sin(initial_state.th), 
+                    final_state.x, final_state.y, final_state.V*np.cos(final_state.th), final_state.V*np.sin(final_state.th)])
+
+    coeffs =  np.linalg.solve(A, y)
+
+    print("coeffs:", coeffs)
+
     ########## Code ends here ##########
     return coeffs
 
@@ -47,9 +65,28 @@ def compute_traj(coeffs, tf, N):
         traj (np.array shape [N,7]), N points along the trajectory, from t=0
             to t=tf, evenly spaced in time
     """
+    print("N: {}".format(N))
+
     t = np.linspace(0,tf,N) # generate evenly spaced points from 0 to tf
     traj = np.zeros((N,7))
     ########## Code starts here ##########
+
+    for i, t_val in enumerate(t):
+        #x, y vals
+        traj[i][0] = coeffs[0] + t_val*coeffs[1] + t_val**2 *coeffs[2] + t_val**3 *coeffs[3]
+        traj[i][1] = coeffs[4] + t_val*coeffs[5] + t_val**2 * coeffs[6] + t_val**3 * coeffs[7]
+        
+        #x prime, y_prime
+        traj[i][3] = coeffs[1] + 2*t_val*coeffs[2] + 3*t_val**2 * coeffs[3]
+        traj[i][4] = coeffs[5] + 2*t_val*coeffs[6] + 3*t_val**2 * coeffs[7]
+
+        #theta
+        traj[i][2] = np.arctan(traj[i][4]/traj[i][3])
+
+        # dx2, dy2
+        traj[i][5] = 2*coeffs[2] + 6 * t_val * coeffs[3]
+        traj[i][6] = 2*coeffs[6] + 6 * t_val * coeffs[7]
+
 
     ########## Code ends here ##########
 
@@ -64,6 +101,31 @@ def compute_controls(traj):
         om (np.array shape [N]) om at each point of traj
     """
     ########## Code starts here ##########
+    V = np.zeros(traj.shape[0])
+    V = np.sqrt(traj[:,3]**2 + traj[:,4]**2)
+
+    om = np.zeros(traj.shape[0])
+    
+    # to compute omega use matrix relationship given
+    # and then calculate the inverse
+    theta = traj[:,2]
+
+    A = np.array([
+        [np.cos(theta), -V*np.sin(theta)],
+        [np.sin(theta), V * np.cos(theta)]
+    ])
+
+    A = np.transpose(A, (2, 0, 1))
+
+    dx2 = np.array([traj[:,5], traj[:,6]]).transpose()
+    dx2 = dx2.reshape(-1, 2, 1)
+
+    print("A shape {}".format(A.shape))
+    print("dx2 shape {}".format(dx2.shape))
+
+    print(np.matmul(np.linalg.inv(A),dx2).shape)
+
+    om = np.matmul(np.linalg.inv(A), dx2)[:,1,0]
 
     ########## Code ends here ##########
 
@@ -83,6 +145,8 @@ def compute_arc_length(V, t):
     """
     s = None
     ########## Code starts here ##########
+    s = np.zeros(V.shape)
+    s[1:] = cumtrapz(V, t)
 
     ########## Code ends here ##########
     return s
@@ -105,6 +169,13 @@ def rescale_V(V, om, V_max, om_max):
     """
     ########## Code starts here ##########
 
+    print("what us goig {}".format((om_max*V/om).shape))
+    V_max_vec = np.minimum(om_max*V/om, V_max*np.ones(V.shape))
+    V_tilde = np.minimum(V, V_max_vec)
+    #V_tilde = np.minimum(V, np.ones(V.shape)*V_max)
+
+    print("V tilde shape {}".format(V_tilde.shape))
+
     ########## Code ends here ##########
     return V_tilde
 
@@ -121,6 +192,13 @@ def compute_tau(V_tilde, s):
     Hint: Use the function cumtrapz. This should take one line.
     """
     ########## Code starts here ##########
+    print("s shape {}, V_tilde shape {}".format(s.shape, V_tilde.shape))
+    tau = np.zeros(s.shape)
+    tau[1:] = cumtrapz(V_tilde, s)
+
+
+
+    print("tau shape: {}".format(tau.shape))
 
     ########## Code ends here ##########
     return tau
@@ -138,6 +216,9 @@ def rescale_om(V, om, V_tilde):
     Hint: This should take one line.
     """
     ########## Code starts here ##########
+    om_tilde = V_tilde*(om/V)
+
+    print("om tilde shape {}".format(om_tilde.shape))
 
     ########## Code ends here ##########
     return om_tilde
@@ -177,6 +258,12 @@ def interpolate_traj(traj, tau, V_tilde, om_tilde, dt, s_f):
 
     # Interpolate for state trajectory
     traj_scaled = np.zeros((N_new+1,7))
+
+    ###Paxton size checking
+    print("t new: {} tau {} traj {}".format(t_new.shape, tau.shape, traj.shape))
+
+
+    ###
     traj_scaled[:,0] = np.interp(t_new,tau,traj[:,0])   # x
     traj_scaled[:,1] = np.interp(t_new,tau,traj[:,1])   # y
     traj_scaled[:,2] = np.interp(t_new,tau,traj[:,2])   # th
