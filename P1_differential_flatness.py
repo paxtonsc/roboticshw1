@@ -169,12 +169,8 @@ def rescale_V(V, om, V_max, om_max):
     """
     ########## Code starts here ##########
 
-    print("what us goig {}".format((om_max*V/om).shape))
-    V_max_vec = np.minimum(om_max*V/om, V_max*np.ones(V.shape))
-    V_tilde = np.minimum(V, V_max_vec)
-    #V_tilde = np.minimum(V, np.ones(V.shape)*V_max)
-
-    print("V tilde shape {}".format(V_tilde.shape))
+    V_tilde = np.minimum(V, np.ones(V.shape)*V_max)
+    V_tilde = np.minimum(V_tilde, om_max*np.divide(V, np.abs(om)))
 
     ########## Code ends here ##########
     return V_tilde
@@ -192,14 +188,8 @@ def compute_tau(V_tilde, s):
     Hint: Use the function cumtrapz. This should take one line.
     """
     ########## Code starts here ##########
-    print("s shape {}, V_tilde shape {}".format(s.shape, V_tilde.shape))
     tau = np.zeros(s.shape)
     tau[1:] = cumtrapz(V_tilde, s)
-
-
-
-    print("tau shape: {}".format(tau.shape))
-
     ########## Code ends here ##########
     return tau
 
@@ -216,9 +206,7 @@ def rescale_om(V, om, V_tilde):
     Hint: This should take one line.
     """
     ########## Code starts here ##########
-    om_tilde = V_tilde*(om/V)
-
-    print("om tilde shape {}".format(om_tilde.shape))
+    om_tilde = V_tilde*np.divide(om, V)
 
     ########## Code ends here ##########
     return om_tilde
