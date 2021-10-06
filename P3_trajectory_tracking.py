@@ -60,6 +60,20 @@ class TrajectoryTracker:
         ########## Code starts here ##########
         V = 0
         om = 0
+
+        u1 = xdd_d + self.kpx*(x_d - x) + self.kdx*(xd_d - self.V_prev*np.cos(th))
+        u2 = ydd_d + self.kpx*(y_d - y) + self.kdy*(yd_d - self.V_prev*np.sin(th))
+
+        delta_V = dt * (np.cos(th)*u1 + np.sin(th)*u2)
+
+        V = delta_V + self.V_prev
+
+        if np.abs(V) < V_PREV_THRES:
+            print("below limit")
+            V = V_PREV_THRES
+            print(V)
+
+        om = -np.sin(th)*u1/V + np.cos(th)*u2/V
         ########## Code ends here ##########
 
         # apply control limits

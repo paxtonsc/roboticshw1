@@ -189,7 +189,7 @@ def compute_tau(V_tilde, s):
     """
     ########## Code starts here ##########
     tau = np.zeros(s.shape)
-    tau[1:] = cumtrapz(V_tilde, s)
+    tau[1:] = cumtrapz(1/V_tilde, s)
     ########## Code ends here ##########
     return tau
 
@@ -207,7 +207,6 @@ def rescale_om(V, om, V_tilde):
     """
     ########## Code starts here ##########
     om_tilde = V_tilde*np.divide(om, V)
-
     ########## Code ends here ##########
     return om_tilde
 
